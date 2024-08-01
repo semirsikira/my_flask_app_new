@@ -2,11 +2,15 @@ from flask import Flask, request, jsonify
 import pandas as pd
 import re
 import google.generativeai as genai
+import os
 
 app = Flask(__name__)
 
-# Configure the Gemini API key
-genai.configure(api_key="AIzaSyCwMusTuEIco6gMfMjkzdvl9FODcmpdpvI")  # Replace with your actual API key
+# Configure the Gemini API key from environment variables
+api_key = os.getenv("AIzaSyCwMusTuEIco6gMfMjkzdvl9FODcmpdpvI")
+if not api_key:
+    raise ValueError("API key is missing. Set the 'GENAI_API_KEY' environment variable.")
+genai.configure(api_key=api_key)
 
 # Define generation configuration
 generation_config = {"temperature": 0.9, "top_p": 1, "top_k": 1, "max_output_tokens": 2048}
@@ -16,6 +20,9 @@ model = genai.GenerativeModel("gemini-pro", generation_config=generation_config)
 
 # Load your database
 file_path = 'Prices_Dimensions_DataCube_07_03_2024.feather'
+if not os.path.exists(file_path):
+    raise FileNotFoundError(f"File {file_path} does not exist.")
+
 products_df = pd.read_feather(file_path)
 
 # Normalize the DataFrame for easier matching
@@ -165,6 +172,5 @@ def handle_query():
         return jsonify({"message": "The query is not related to product information."})
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 5000))  # Get the PORT environment variable or use 5000 as default
     app.run(host="0.0.0.0", port=port, debug=True)  # Listen on all IP addresses, the correct port, and enable debugging
