@@ -15,7 +15,7 @@ generation_config = {"temperature": 0.9, "top_p": 1, "top_k": 1, "max_output_tok
 model = genai.GenerativeModel("gemini-pro", generation_config=generation_config)
 
 # Load your database
-file_path = 'C:/Users/ssikira/OneDrive - Deloitte (O365D)/Desktop/Semir/MS/SupportPilot/DataCubes/Prices_Dimensions_DataCube_07_03_2024.feather'
+file_path = 'Prices_Dimensions_DataCube_07_03_2024.feather'
 products_df = pd.read_feather(file_path)
 
 # Normalize the DataFrame for easier matching
