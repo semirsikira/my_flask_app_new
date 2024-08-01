@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 # Configure the Gemini API key from environment variables
-api_key = os.getenv("AIzaSyCwMusTuEIco6gMfMjkzdvl9FODcmpdpvI")
+api_key = os.getenv("GENAI_API_KEY")
 if not api_key:
     raise ValueError("API key is missing. Set the 'GENAI_API_KEY' environment variable.")
 genai.configure(api_key=api_key)
