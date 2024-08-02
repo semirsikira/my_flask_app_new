@@ -3,14 +3,6 @@ import pandas as pd
 import re
 import google.generativeai as genai
 import os
-import logging
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
@@ -27,15 +19,11 @@ generation_config = {"temperature": 0.9, "top_p": 1, "top_k": 1, "max_output_tok
 model = genai.GenerativeModel("gemini-pro", generation_config=generation_config)
 
 # Load your database
-try:
-    file_path = 'Prices_Dimensions_DataCube_07_03_2024.feather'
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File {file_path} does not exist.")
+file_path = 'Prices_Dimensions_DataCube_07_03_2024.feather'
+if not os.path.exists(file_path):
+    raise FileNotFoundError(f"File {file_path} does not exist.")
 
-    products_df = pd.read_feather(file_path)
-except Exception as e:
-    logging.error(f"Error loading data file: {e}")
-    raise
+products_df = pd.read_feather(file_path)
 
 # Normalize the DataFrame for easier matching
 products_df['Product_Name'] = products_df['Product_Name'].str.strip()
@@ -59,7 +47,7 @@ def analyze_query_with_gemini(query):
             return "No candidates found in the response."
     
     except Exception as e:
-        logging.error(f"Error analyzing query: {e}")
+        print(f"Error analyzing query: {e}")
         return "Error analyzing query."
 
 def extract_product_details(query):
@@ -72,8 +60,8 @@ def extract_product_details(query):
     product_name = product_name_match.group(0) if product_name_match else None
     dimensions = dimensions_match.group(0) if dimensions_match else None
 
-    logging.info(f"Extracted Product Name: {product_name}")
-    logging.info(f"Extracted Dimensions: {dimensions}")
+    print(f"Extracted Product Name: {product_name}")
+    print(f"Extracted Dimensions: {dimensions}")
 
     return product_name, dimensions
 
@@ -150,15 +138,11 @@ def fetch_product_info(product_name, dimensions=None):
     
     return "Proizvod nije pronađen."
 
-@app.route('/', methods=['GET'])
-def index():
-    return "Welcome to my Flask app!"
-
 @app.route('/query', methods=['POST'])
 def handle_query():
     query = request.json.get('query', '')
     analysis_result = analyze_query_with_gemini(query)
-    logging.info(f"Analysis result: {analysis_result}")
+    print(f"Analysis result: {analysis_result}")
 
     if "informacije o proizvodu" in analysis_result.lower() or "product information" in analysis_result.lower():
         product_name, dimensions = extract_product_details(query)
@@ -187,6 +171,36 @@ def handle_query():
     else:
         return jsonify({"message": "The query is not related to product information."})
 
+@app.route('/webhook', methods=['GET'])
+def verify():
+    mode = request.args.get('hub.mode')
+    challenge = request.args.get('hub.challenge')
+    verify_token = request.args.get('hub.verify_token')
+
+    if mode == 'subscribe' and challenge:
+        if verify_token == os.getenv('VERIFY_TOKEN'):
+            return challenge, 200
+        else:
+            return 'Verification token mismatch', 403
+
+    return 'Hello World', 200
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+
+    if 'entry' in data:
+        for entry in data['entry']:
+            if 'messaging' in entry:
+                for message in entry['messaging']:
+                    process_message(message)
+
+    return 'OK', 200
+
+def process_message(message):
+    # Implement this function to handle incoming messages from Facebook
+    pass
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Get the PORT environment variable or use 5000 as default
-    app.run(host="0.0.0.0", port=port, debug=True) 
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
