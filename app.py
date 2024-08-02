@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import re
 import google.generativeai as genai
+import requests
 
 app = Flask(__name__)
 
@@ -20,11 +21,13 @@ model = genai.GenerativeModel("gemini-pro", generation_config=generation_config)
 file_path = 'Prices_Dimensions_DataCube_07_03_2024.feather'
 if not os.path.exists(file_path):
     raise FileNotFoundError(f"File {file_path} does not exist.")
-
 products_df = pd.read_feather(file_path)
 products_df['Product_Name'] = products_df['Product_Name'].str.strip()
 products_df['Product_Dimension'] = products_df['Product_Dimension'].str.lower().str.strip()
 products_df['Product_Type'] = products_df['Product_Type'].str.lower().str.strip()
+
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 
 def analyze_query_with_gemini(query):
     try:
@@ -142,16 +145,43 @@ def handle_query():
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
-    verify_token = os.getenv("VERIFY_TOKEN")
     if request.method == 'GET':
-        if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.verify_token") == verify_token:
+        if (request.args.get("hub.mode") == "subscribe" and
+            request.args.get("hub.verify_token") == VERIFY_TOKEN):
             return request.args.get("hub.challenge")
         return "Verification token mismatch", 403
     elif request.method == 'POST':
-        # Handle POST requests (Facebook sends messages here)
         data = request.get_json()
         print(f"Received message: {data}")
-        return "Event received", 200
+        # Process incoming messages from Facebook
+        for entry in data.get('entry', []):
+            for messaging_event in entry.get('messaging', []):
+                if messaging_event.get('message'):
+                    sender_id = messaging_event['sender']['id']
+                    message_text = messaging_event['message'].get('text')
+                    response_text = generate_response(message_text)
+                    send_message(sender_id, response_text)
+        return 'OK', 200
+
+def generate_response(message_text):
+    # Use Gemini AI or simple logic to generate responses
+    response_text = analyze_query_with_gemini(message_text)
+    return response_text
+
+def send_message(recipient_id, message_text):
+    params = {
+        'access_token': PAGE_ACCESS_TOKEN
+    }
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'recipient': {'id': recipient_id},
+        'message': {'text': message_text}
+    }
+    response = requests.post('https://graph.facebook.com/v12.0/me/messages',
+                             params=params, headers=headers, json=data)
+    return response.json()
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
