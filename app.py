@@ -173,4 +173,4 @@ def handle_query():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))  # Get the PORT environment variable or use 5000 as default
-    app.run(host="0.0.0.0", port=port, debug=True)  # Listen on all IP addresses, the correct port, and enable debugging
+    app.run(host="0.0.0.0", port=port, debug=True) 
